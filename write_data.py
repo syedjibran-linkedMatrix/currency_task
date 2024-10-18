@@ -7,7 +7,7 @@ class PDFWriter:
     def __init__(self, filename):
         self.filename = filename
 
-    def create_pdf(self, fetched_data, volatility_data):
+    def create_pdf(self, fetched_data, volatility_data, rate_of_change_data):
         # Create a new PDF with the specified filename
         pdf = canvas.Canvas(self.filename, pagesize=letter)
         pdf.setTitle("Currency Data Report")
@@ -29,6 +29,10 @@ class PDFWriter:
         y -= 20  # Space between sections
         y = self.write_section(pdf, "Volatility Data:", volatility_data, y)
 
+        # Write rate of change data
+        y -= 20  # Space between sections
+        y = self.write_section(pdf, "Rate of Change Data (%):", rate_of_change_data, y)
+
         # Save the PDF
         pdf.showPage()
         pdf.save()
@@ -46,7 +50,7 @@ class PDFWriter:
         y -= 20  # Space before content
 
         for currency, values in data.items():
-            line_content = f"{currency.upper()}: {values}"
+            line_content = f"{currency.upper()}: {values if values is not None else 'Insufficient data'}"
             y = self.wrap_text(pdf, line_content, y, page_bottom)
 
         return y

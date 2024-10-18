@@ -2,6 +2,7 @@ from arg_parser import ArgParser
 from fetch_data import CurrencyDataFetcher
 from volatility_calculator import CurrencyVolatilityCalculator
 from write_data import PDFWriter
+from calculate_rate_of_change import CurrencyRateOfChangeCalculator
 
 def main():
     # Get the arguments from the ArgParser (number of days and selected currencies)
@@ -17,10 +18,14 @@ def main():
     volatility_data = calculator.calculate_volatility()  # Get raw volatility data
     calculator.display_volatility()  # Display raw volatility data
 
-    # Generate PDF with raw fetched data and volatility data
+    # Calculate and display rate of change
+    rate_calculator = CurrencyRateOfChangeCalculator(fetched_data)
+    rate_of_change = rate_calculator.calculate_rate_of_change()
+    rate_calculator.display_rate_of_change()
+
+    # Generate PDF with raw fetched data, volatility data, and rate of change data
     pdf_writer = PDFWriter("Currency_Report.pdf")
-    pdf_writer.create_pdf(fetched_data, volatility_data)  # Pass raw data directly
+    pdf_writer.create_pdf(fetched_data, volatility_data, rate_of_change)  # Pass rate of change data
 
 if __name__ == "__main__":
     main()
- 
