@@ -28,26 +28,26 @@ class PDFWriter:
             truncated_data[currency] = sorted(sorted_values, key=lambda x: x[0])
         return truncated_data
 
-    def create_pdf(self, fetched_data, volatility_data, rate_of_change_data):
-    # Truncate data to 5 most recent dates
+    def create_pdf(self, fetched_data, volatility_data, rate_of_change_data, moving_average_data):
+        # Truncate data to 5 most recent dates
         truncated_data = self.truncate_data(fetched_data, max_dates=5)
 
         doc = SimpleDocTemplate(
-            self.filename,
-            pagesize=letter,
-            rightMargin=self.margin,
-            leftMargin=self.margin,
-            topMargin=self.margin,
-            bottomMargin=self.margin
+        self.filename,
+        pagesize=letter,
+        rightMargin=self.margin,
+        leftMargin=self.margin,
+        topMargin=self.margin,
+        bottomMargin=self.margin
         )
-    
-        story = []
-    
+
+        element_of_pdf = []
+
         # Add header
         header_style = self.get_header_style()
-        story.append(header_style)
-    
-        # Add exchange rate table with pagination support
+        element_of_pdf.append(header_style)
+
+        # Add exchange rate table
         table_data = self.prepare_table_data(truncated_data)  # Use truncated data
         table = Table(table_data, colWidths=[100, 150, 150])
         table.setStyle(TableStyle([
@@ -60,19 +60,21 @@ class PDFWriter:
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
-        story.append(table)
+        element_of_pdf.append(table)
 
-        # Create and add the graph
+        # Add the graph
         graph_path = self.save_graph_to_temp(truncated_data)  # Use truncated data
-        img = Image(graph_path, width=7*inch, height=3.5*inch)
-        story.append(img)
-    
-        # Add volatility and rate of change sections
-        story.extend(self.create_data_sections(volatility_data, rate_of_change_data))
-    
+        img = Image(graph_path, width=7 * inch, height=3.5 * inch)
+        element_of_pdf.append(img)
+
+        # Add sections for volatility, rate of change, and moving averages
+        element_of_pdf.extend(self.create_data_sections(volatility_data, rate_of_change_data))
+        element_of_pdf.extend(self.create_moving_average_section(moving_average_data))
+
         # Build the PDF
-        doc.build(story)
+        doc.build(element_of_pdf)
         print(f"PDF generated successfully: {self.filename}")
+
 
     def get_header_style(self):
 
@@ -132,6 +134,30 @@ class PDFWriter:
         plt.close()
         
         return temp_filename
+    
+    def create_moving_average_section(self, moving_average_data):
+        """Create a section for moving average data."""
+        sections = []
+        section_style = ParagraphStyle(
+        'SectionStyle',
+        fontSize=12,
+        fontName='Helvetica',
+        spaceAfter=10
+        )
+
+        # Add header for moving averages
+        header = Paragraph("<b>Moving Averages (Window Size = 5):</b>", section_style)
+        sections.append(header)
+
+        # Add each currency's moving average data
+        for currency, ma_values in moving_average_data.items():
+            if ma_values:
+                ma_text = f"{currency.upper()}: {', '.join(f'{val:.4f}' for val in ma_values)}"
+            else:
+                ma_text = f"{currency.upper()}: Insufficient data"
+            sections.append(Paragraph(ma_text, section_style))
+
+        return sections
 
     def create_data_sections(self, volatility_data, rate_of_change_data):
         """Create sections for volatility and rate of change data."""
