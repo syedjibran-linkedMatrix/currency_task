@@ -1,7 +1,7 @@
 class CurrencyVolatilityCalculator:
     def __init__(self, currency_data):
         """Initialize the calculator with currency data."""
-        self.currency_data = currency_data  # Expected format: {'THB': [('2024-10-17', 36.07878107), ('2024-10-16', 36.23039568)]}
+        self.currency_data = currency_data  
 
     def calculate_mean(self, values):
         """Calculate the mean of a list of values."""
@@ -18,13 +18,9 @@ class CurrencyVolatilityCalculator:
         """Calculate the volatility for each currency."""
         volatility = {}
         for currency, data in self.currency_data.items():
-            # data = [('2024-10-17', 36.07878107), ('2024-10-16', 36.23039568), ('2024-10-15', 36.15000000)]
+           
             # Extract the values from the data
-
             values = [value for _, value in data if value]
-
-            # values = [36.07878107, 36.23039568, 36.15000000]
-
             if len(values) > 1:  # Ensure there are enough values to calculate standard deviation
                 mean = self.calculate_mean(values)
                 stddev = self.calculate_standard_deviation(values, mean)
@@ -41,16 +37,4 @@ class CurrencyVolatilityCalculator:
             print(f"Volatility for {currency.upper()}: {vol if vol else 'Insufficient data'}")
 
 
-# def main():
-#     # Sample input for testing, can be replaced with actual data from fetch_data.py
-#     currency_data = {
-#         'THB': [('2024-10-17', 36.07878107), ('2024-10-16', 36.23039568)],
-#         'BRL': [('2024-10-17', 6.15909755), ('2024-10-16', 6.1565057)],
-#     }
 
-#     calculator = CurrencyVolatilityCalculator(currency_data)
-#     calculator.display_volatility()
-
-
-# if __name__ == "__main__":
-#     main()

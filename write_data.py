@@ -5,6 +5,10 @@ from reportlab.lib import colors
 from datetime import datetime
 import matplotlib.pyplot as plt
 import tempfile
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph
+from reportlab.lib.styles import ParagraphStyle
 
 
 class PDFWriter:
@@ -71,8 +75,7 @@ class PDFWriter:
         print(f"PDF generated successfully: {self.filename}")
 
     def get_header_style(self):
-        from reportlab.platypus import Paragraph
-        from reportlab.lib.styles import ParagraphStyle
+
     
          # Create the header text
         header_text = f"Currency Data Report\nGenerated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -132,8 +135,6 @@ class PDFWriter:
 
     def create_data_sections(self, volatility_data, rate_of_change_data):
         """Create sections for volatility and rate of change data."""
-        from reportlab.platypus import Paragraph
-        from reportlab.lib.styles import ParagraphStyle
         
         sections = []
         section_style = ParagraphStyle(

@@ -1,16 +1,15 @@
 class CurrencyRateOfChangeCalculator:
     def __init__(self, currency_data):
         """Initialize the calculator with currency data."""
-        self.currency_data = currency_data  # Expected format: {'THB': [('2024-10-17', 36.07878107), ('2024-10-16', 36.23039568)]}
+        # Expected format: {'THB': [('2024-10-17', 36.07878107), ('2024-10-16', 36.23039568)]}
+        self.currency_data = currency_data  
 
     def calculate_rate_of_change(self):
         """Calculate the rate of change for each currency."""
         rate_of_change = {}
         
         for currency, data in self.currency_data.items():
-            # Extract the values from the data
             values = [value for _, value in data if value is not None]
-
             if len(values) > 1:  # Need at least two values to calculate the rate of change
                 initial_value = values[-1]  # Oldest value
                 final_value = values[0]  # Most recent value
