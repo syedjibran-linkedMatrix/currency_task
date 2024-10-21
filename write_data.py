@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import tempfile
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import ParagraphStyle
 
 
 class PDFWriter:
@@ -33,12 +31,12 @@ class PDFWriter:
         truncated_data = self.truncate_data(fetched_data, max_dates=5)
 
         doc = SimpleDocTemplate(
-        self.filename,
-        pagesize=letter,
-        rightMargin=self.margin,
-        leftMargin=self.margin,
-        topMargin=self.margin,
-        bottomMargin=self.margin
+            self.filename,
+            pagesize=letter,
+            rightMargin=self.margin,
+            leftMargin=self.margin,
+            topMargin=self.margin,
+            bottomMargin=self.margin
         )
 
         element_of_pdf = []
@@ -48,7 +46,7 @@ class PDFWriter:
         element_of_pdf.append(header_style)
 
         # Add exchange rate table
-        table_data = self.prepare_table_data(truncated_data)  # Use truncated data
+        table_data = self.prepare_table_data(truncated_data)
         table = Table(table_data, colWidths=[100, 150, 150])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -62,10 +60,15 @@ class PDFWriter:
         ]))
         element_of_pdf.append(table)
 
-        # Add the graph
-        graph_path = self.save_graph_to_temp(truncated_data)  # Use truncated data
-        img = Image(graph_path, width=7 * inch, height=3.5 * inch)
-        element_of_pdf.append(img)
+        # Add the exchange rates graph
+        exchange_graph_path = self.save_exchange_graph_to_temp(truncated_data)
+        img_exchange = Image(exchange_graph_path, width=7 * inch, height=3.5 * inch)
+        element_of_pdf.append(img_exchange)
+
+        # Add the moving averages graph
+        ma_graph_path = self.save_ma_graph_to_temp(moving_average_data)
+        img_ma = Image(ma_graph_path, width=7 * inch, height=3.5 * inch)
+        element_of_pdf.append(img_ma)
 
         # Add sections for volatility, rate of change, and moving averages
         element_of_pdf.extend(self.create_data_sections(volatility_data, rate_of_change_data))
@@ -75,11 +78,8 @@ class PDFWriter:
         doc.build(element_of_pdf)
         print(f"PDF generated successfully: {self.filename}")
 
-
     def get_header_style(self):
-
-    
-         # Create the header text
+        # Create the header text
         header_text = f"Currency Data Report\nGenerated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     
         # Define a ParagraphStyle for the header
@@ -93,9 +93,7 @@ class PDFWriter:
     
         # Create a paragraph using the header text
         header_paragraph = Paragraph(header_text, header_style)
-
         return header_paragraph
-
 
     def prepare_table_data(self, data):
         """Prepare data for the table including headers."""
@@ -105,16 +103,12 @@ class PDFWriter:
                 table_data.append([currency.upper(), date, f"{rate:.4f}"])
         return table_data
 
-    def save_graph_to_temp(self, data):
+    def save_exchange_graph_to_temp(self, data):
         """Create the exchange rate graph and save it to a temporary file."""
-        
-        
-        # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         temp_filename = temp_file.name
         temp_file.close()
         
-        # Create and save the plot
         plt.figure(figsize=(8, 4))
         for currency, values in data.items():
             dates = [item[0] for item in values]
@@ -129,7 +123,33 @@ class PDFWriter:
         plt.legend()
         plt.tight_layout()
         
-        # Save to temporary file
+        plt.savefig(temp_filename, format='png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        return temp_filename
+
+    def save_ma_graph_to_temp(self, moving_average_data):
+        """Create the moving averages graph and save it to a temporary file."""
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        temp_filename = temp_file.name
+        temp_file.close()
+        
+        plt.figure(figsize=(8, 4))
+        
+        # Plot moving averages for each currency
+        for currency, ma_values in moving_average_data.items():
+            if ma_values:  # Check if there are values to plot
+                # Create x-axis points (1 through length of MA values)
+                x_points = list(range(1, len(ma_values) + 1))
+                plt.plot(x_points, ma_values, marker='o', label=f"{currency.upper()}")
+
+        plt.title('Moving Averages by Currency')
+        plt.xlabel('Period')
+        plt.ylabel('Moving Average Value')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend()
+        plt.tight_layout()
+        
         plt.savefig(temp_filename, format='png', dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -139,14 +159,14 @@ class PDFWriter:
         """Create a section for moving average data."""
         sections = []
         section_style = ParagraphStyle(
-        'SectionStyle',
-        fontSize=12,
-        fontName='Helvetica',
-        spaceAfter=10
+            'SectionStyle',
+            fontSize=12,
+            fontName='Helvetica',
+            spaceAfter=10
         )
 
         # Add header for moving averages
-        header = Paragraph("<b>Moving Averages (Window Size = 5):</b>", section_style)
+        header = Paragraph("<b>Moving Averages:</b>", section_style)
         sections.append(header)
 
         # Add each currency's moving average data
@@ -161,7 +181,6 @@ class PDFWriter:
 
     def create_data_sections(self, volatility_data, rate_of_change_data):
         """Create sections for volatility and rate of change data."""
-        
         sections = []
         section_style = ParagraphStyle(
             'SectionStyle',
@@ -169,7 +188,8 @@ class PDFWriter:
             fontName='Helvetica',
             spaceAfter=10
         )
-         # Volatility section header
+        
+        # Volatility section header
         volatility_header = Paragraph("<b>Volatility Data:</b>", section_style)
         sections.append(volatility_header)
     
@@ -177,8 +197,8 @@ class PDFWriter:
             text = f"{currency.upper()}: {values if values is not None else 'Insufficient data'}"
             sections.append(Paragraph(text, section_style))
     
-        # Add a space between sections if needed
-        sections.append(Paragraph("", section_style))  # Optional empty paragraph for spacing
+        # Add a space between sections
+        sections.append(Paragraph("", section_style))
     
         # Rate of change section header
         rate_change_header = Paragraph("<b>Rate of Change Data (%):</b>", section_style)
