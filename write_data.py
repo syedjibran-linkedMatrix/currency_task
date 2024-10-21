@@ -16,7 +16,7 @@ class PDFWriter:
         self.margin = 30
 
     def truncate_data(self, data, max_dates=5):
-        """Limit data to the most recent dates."""
+        """Limit data to the most recent dates for table display only."""
         truncated_data = {}
         for currency, values in data.items():
             sorted_values = sorted(values, key=lambda x: x[0], reverse=True)[:max_dates]
@@ -24,6 +24,9 @@ class PDFWriter:
         return truncated_data
 
     def create_pdf(self, fetched_data, volatility_data, rate_of_change_data, moving_average_data):
+        # Store full data for graphs
+        self.full_data = fetched_data
+        # Truncate data for tables
         truncated_data = self.truncate_data(fetched_data, max_dates=5)
 
         doc = SimpleDocTemplate(
@@ -40,7 +43,7 @@ class PDFWriter:
         # Add main header
         main_header = self.get_header_style("Currency Data Report")
         elements.append(main_header)
-        elements.append(Spacer(1, 10))  # Add small space after main header
+        elements.append(Spacer(1, 10))
 
         # Create pages for each currency
         for i, currency in enumerate(truncated_data.keys()):
@@ -68,7 +71,7 @@ class PDFWriter:
         elements.append(Spacer(1, 10))
 
         # Exchange rates table with full width
-        elements.append(self.create_subheader("Exchange Rates"))
+        elements.append(self.create_subheader("Recent Exchange Rates"))
         table_data = self.prepare_table_data(currency, exchange_data)
         exchange_table = Table(table_data, colWidths=[self.page_width/3 - 20, self.page_width/3 - 20])
         exchange_table.setStyle(TableStyle([
@@ -84,18 +87,19 @@ class PDFWriter:
         elements.append(exchange_table)
         elements.append(Spacer(1, 15))
 
-        # Exchange rate graph
-        elements.append(self.create_subheader("Exchange Rate Trend"))
-        exchange_graph_path = self.save_exchange_graph_to_temp(currency, exchange_data, 
+        # Exchange rate graph (using full data)
+        elements.append(self.create_subheader("Complete Exchange Rate Trend"))
+        full_exchange_data = sorted(self.full_data[currency], key=lambda x: x[0])
+        exchange_graph_path = self.save_exchange_graph_to_temp(currency, full_exchange_data, 
                                                              width=6.5*inch, height=2*inch)
         elements.append(Image(exchange_graph_path, width=6.5*inch, height=2*inch))
         elements.append(Spacer(1, 15))
 
-        # Moving average graph
-        elements.append(self.create_subheader("Moving Averages Trend"))
+        # Moving average graph (using full data)
+        elements.append(self.create_subheader("Complete Moving Averages Trend"))
         moving_average_graph_path = self.save_moving_average_graph_to_temp(
             currency, 
-            moving_averages if isinstance(moving_averages, list) else [], 
+            moving_averages, 
             width=6.5*inch, height=2*inch
         )
         elements.append(Image(moving_average_graph_path, width=6.5*inch, height=2*inch))
@@ -109,7 +113,7 @@ class PDFWriter:
                                 self.get_metric_style()))
         
         if moving_averages:
-            ma_text = f"Moving Averages: {', '.join(f'{val:.4f}' for val in moving_averages[:5])}..."
+            ma_text = f"Moving Averages: {', '.join(f'{val:.4f}' for val in moving_averages[:3])}..."
         else:
             ma_text = "Moving Averages: N/A"
         elements.append(Paragraph(ma_text, self.get_metric_style()))
@@ -117,19 +121,23 @@ class PDFWriter:
         return elements
 
     def save_exchange_graph_to_temp(self, currency, values, width=6.5*inch, height=2*inch):
-        """Create an exchange rate graph."""
+        """Create an exchange rate graph without date labels."""
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         temp_filename = temp_file.name
         temp_file.close()
 
         plt.figure(figsize=(width/inch, height/inch))
-        dates = [item[0] for item in values]
+        
+        # Extract only rates and use sequential points
         rates = [item[1] for item in values]
-        plt.plot(dates, rates, marker='o', color='#1f77b4', linewidth=1.5)
+        points = range(len(rates))
+        
+        plt.plot(points, rates, marker='o', color='#1f77b4', linewidth=1.5, markersize=3)
 
         plt.title(f'{currency.upper()} Exchange Rate vs EUR', fontsize=10)
         plt.ylabel('Rate', fontsize=8)
-        plt.xticks(rotation=45, fontsize=8)
+        # Remove x-axis labels since we're showing sequential points
+        plt.xticks([])
         plt.yticks(fontsize=8)
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.tight_layout()
@@ -139,7 +147,7 @@ class PDFWriter:
         return temp_filename
 
     def save_moving_average_graph_to_temp(self, currency, moving_averages, width=6.5*inch, height=2*inch):
-        """Create a moving averages graph."""
+        """Create a moving averages graph without date labels."""
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         temp_filename = temp_file.name
         temp_file.close()
@@ -147,18 +155,21 @@ class PDFWriter:
         plt.figure(figsize=(width/inch, height/inch))
         
         if isinstance(moving_averages, list) and moving_averages:
+            # Use sequential points for x-axis
+            points = range(len(moving_averages))
+            
+            # If moving_averages is a list of tuples, extract only the values
             if isinstance(moving_averages[0], tuple):
-                dates = [item[0] for item in moving_averages]
                 ma_values = [item[1] for item in moving_averages]
             else:
-                dates = [f"Day {i+1}" for i in range(len(moving_averages))]
                 ma_values = moving_averages
                 
-            plt.plot(dates, ma_values, marker='o', color='#ff7f0e', linewidth=1.5)
+            plt.plot(points, ma_values, marker='o', color='#ff7f0e', linewidth=1.5, markersize=3)
 
         plt.title(f'{currency.upper()} Moving Averages', fontsize=10)
         plt.ylabel('Value', fontsize=8)
-        plt.xticks(rotation=45, fontsize=8)
+        # Remove x-axis labels since we're showing sequential points
+        plt.xticks([])
         plt.yticks(fontsize=8)
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.tight_layout()
