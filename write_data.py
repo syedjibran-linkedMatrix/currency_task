@@ -1,7 +1,5 @@
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
-from reportlab.lib.utils import ImageReader
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, PageBreak, Image
 from reportlab.lib import colors
 from datetime import datetime
