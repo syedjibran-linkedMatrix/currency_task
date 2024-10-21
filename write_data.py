@@ -23,7 +23,7 @@ class PDFWriter:
         # Write header
         y = self.write_header(pdf, y)
 
-        # Limit to 5 dates if the data contains more
+        # Limit to 5 dates for all data
         truncated_data = self.truncate_data(fetched_data, max_dates=5)
 
         # Write fetched data
@@ -38,8 +38,8 @@ class PDFWriter:
             y = self.page_height - self.margin
             y = self.write_header(pdf, y)  # Write header on new page
 
-        # Add exchange rate graph
-        y = self.add_exchange_rate_graph(pdf, fetched_data, y)
+        # Add exchange rate graph using truncated data
+        y = self.add_exchange_rate_graph(pdf, truncated_data, y)
 
         # Check if we need a new page for volatility data
         if y - 100 < self.margin:  # 100 is estimated minimum space needed for next section
@@ -72,23 +72,23 @@ class PDFWriter:
         return y - 50  # Return new y position after header
 
     def add_exchange_rate_graph(self, pdf, data, y):
-        """Create and add exchange rate graph to the PDF."""
+        """Create and add exchange rate graph to the PDF using truncated data."""
         # Add section title
         pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(50, y, "Exchange Rate Trends:")
+        pdf.drawString(50, y, "Exchange Rate Trends (5 Recent Dates):")
         y -= 20
 
         # Create a new figure
         plt.figure(figsize=(8, 4))
         
-        # Plot each currency
+        # Plot each currency using truncated data
         for currency, values in data.items():
-            dates = [item[0] for item in values]
+            dates = [item[0] for item in values]  # Already limited to 5 dates
             rates = [item[1] for item in values]
             plt.plot(dates, rates, marker='o', label=currency.upper())
 
         # Customize the plot
-        plt.title('Exchange Rates Over Time (EUR base)')
+        plt.title('Exchange Rates Over Time - 5 Recent Dates (EUR base)')
         plt.xlabel('Date')
         plt.ylabel('Exchange Rate')
         plt.xticks(rotation=45)
