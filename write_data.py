@@ -20,9 +20,7 @@ class PDFWriter:
         """Limit data to the most recent dates."""
         truncated_data = {}
         for currency, values in data.items():
-            # Sort values by date in descending order and take the most recent 5
             sorted_values = sorted(values, key=lambda x: x[0], reverse=True)[:max_dates]
-            # Reverse back to ascending order for display
             truncated_data[currency] = sorted(sorted_values, key=lambda x: x[0])
         return truncated_data
 
@@ -39,15 +37,42 @@ class PDFWriter:
             bottomMargin=self.margin
         )
 
-        element_of_pdf = []
+        elements = []
 
-        # Add header
-        header_style = self.get_header_style()
-        element_of_pdf.append(header_style)
+        # Add main header
+        main_header = self.get_header_style("Currency Data Report")
+        elements.append(main_header)
+        elements.append(PageBreak())
 
-        # Add exchange rate table
-        table_data = self.prepare_table_data(truncated_data)
-        table = Table(table_data, colWidths=[100, 150, 150])
+        # Create a page for each currency
+        for currency in truncated_data.keys():
+            elements.extend(self.create_currency_page(
+                currency,
+                truncated_data[currency],
+                volatility_data.get(currency),
+                rate_of_change_data.get(currency),
+                moving_average_data.get(currency, [])
+            ))
+            elements.append(PageBreak())
+
+        # Build the PDF
+        doc.build(elements)
+        print(f"PDF generated successfully: {self.filename}")
+
+    def create_currency_page(self, currency, exchange_data, volatility, rate_of_change, moving_averages):
+        """Create a complete page for a single currency."""
+        elements = []
+
+        # Currency header
+        currency_header = self.get_header_style(f"{currency.upper()} Currency Analysis")
+        elements.append(currency_header)
+
+        # Add subheader for exchange rates
+        elements.append(self.create_subheader("Recent Exchange Rates"))
+
+        # Exchange rates table
+        table_data = self.prepare_table_data(currency, exchange_data)
+        table = Table(table_data, colWidths=[150, 150])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -58,154 +83,98 @@ class PDFWriter:
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
-        element_of_pdf.append(table)
+        elements.append(table)
 
-        # Add the exchange rates graph
-        exchange_graph_path = self.save_exchange_graph_to_temp(truncated_data)
-        img_exchange = Image(exchange_graph_path, width=7 * inch, height=3.5 * inch)
-        element_of_pdf.append(img_exchange)
+        # Add some spacing
+        elements.append(Paragraph("<br/><br/>", ParagraphStyle('Spacing')))
 
-        # Add the moving averages graph
-        ma_graph_path = self.save_ma_graph_to_temp(moving_average_data)
-        img_ma = Image(ma_graph_path, width=7 * inch, height=3.5 * inch)
-        element_of_pdf.append(img_ma)
+        # Exchange rate graph
+        elements.append(self.create_subheader("Exchange Rate Trend"))
+        exchange_graph_path = self.save_exchange_graph_to_temp(currency, exchange_data)
+        img_exchange = Image(exchange_graph_path, width=6 * inch, height=3 * inch)
+        elements.append(img_exchange)
 
-        # Add sections for volatility, rate of change, and moving averages
-        element_of_pdf.extend(self.create_data_sections(volatility_data, rate_of_change_data))
-        element_of_pdf.extend(self.create_moving_average_section(moving_average_data))
+        # Add metrics section
+        elements.append(self.create_subheader("Currency Metrics"))
+        
+        # Volatility
+        volatility_text = f"Volatility: {volatility if volatility is not None else 'Insufficient data'}"
+        elements.append(Paragraph(volatility_text, self.get_metric_style()))
 
-        # Build the PDF
-        doc.build(element_of_pdf)
-        print(f"PDF generated successfully: {self.filename}")
+        # Rate of Change
+        roc_text = f"Rate of Change: {rate_of_change if rate_of_change is not None else 'Insufficient data'}"
+        elements.append(Paragraph(roc_text, self.get_metric_style()))
 
-    def get_header_style(self):
-        # Create the header text
-        header_text = f"Currency Data Report\nGenerated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    
-        # Define a ParagraphStyle for the header
+        # Moving Averages
+        if moving_averages:
+            ma_text = f"Moving Averages: {', '.join(f'{val:.4f}' for val in moving_averages)}"
+        else:
+            ma_text = "Moving Averages: Insufficient data"
+        elements.append(Paragraph(ma_text, self.get_metric_style()))
+
+        return elements
+
+    def get_header_style(self, text):
+        """Create a header with the given text."""
         header_style = ParagraphStyle(
             'CustomHeader',
             fontSize=16,
             fontName='Helvetica-Bold',
-            spaceAfter=10,
+            spaceAfter=20,
             alignment=1  # Center alignment
         )
-    
-        # Create a paragraph using the header text
-        header_paragraph = Paragraph(header_text, header_style)
-        return header_paragraph
+        return Paragraph(text, header_style)
 
-    def prepare_table_data(self, data):
+    def create_subheader(self, text):
+        """Create a subheader with the given text."""
+        subheader_style = ParagraphStyle(
+            'SubHeader',
+            fontSize=14,
+            fontName='Helvetica-Bold',
+            spaceBefore=15,
+            spaceAfter=10,
+            textColor=colors.HexColor('#2F4F4F')
+        )
+        return Paragraph(text, subheader_style)
+
+    def get_metric_style(self):
+        """Get the style for metric display."""
+        return ParagraphStyle(
+            'MetricStyle',
+            fontSize=12,
+            fontName='Helvetica',
+            spaceBefore=5,
+            spaceAfter=5,
+            leftIndent=20
+        )
+
+    def prepare_table_data(self, currency, values):
         """Prepare data for the table including headers."""
-        table_data = [["Currency", "Date", "Exchange Rate"]]
-        for currency, values in data.items():
-            for date, rate in values:
-                table_data.append([currency.upper(), date, f"{rate:.4f}"])
+        table_data = [["Date", "Exchange Rate"]]
+        for date, rate in values:
+            table_data.append([date, f"{rate:.4f}"])
         return table_data
 
-    def save_exchange_graph_to_temp(self, data):
-        """Create the exchange rate graph and save it to a temporary file."""
+    def save_exchange_graph_to_temp(self, currency, values):
+        """Create the exchange rate graph for a single currency and save it to a temporary file."""
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         temp_filename = temp_file.name
         temp_file.close()
         
         plt.figure(figsize=(8, 4))
-        for currency, values in data.items():
-            dates = [item[0] for item in values]
-            rates = [item[1] for item in values]
-            plt.plot(dates, rates, marker='o', label=currency.upper())
+        
+        dates = [item[0] for item in values]
+        rates = [item[1] for item in values]
+        plt.plot(dates, rates, marker='o', color='#1f77b4', linewidth=2)
 
-        plt.title('Exchange Rates Over Time - 5 Recent Dates (EUR base)')
+        plt.title(f'{currency.upper()} Exchange Rate vs EUR')
         plt.xlabel('Date')
         plt.ylabel('Exchange Rate')
         plt.xticks(rotation=45)
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend()
         plt.tight_layout()
         
         plt.savefig(temp_filename, format='png', dpi=300, bbox_inches='tight')
         plt.close()
         
         return temp_filename
-
-    def save_ma_graph_to_temp(self, moving_average_data):
-        """Create the moving averages graph and save it to a temporary file."""
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-        temp_filename = temp_file.name
-        temp_file.close()
-        
-        plt.figure(figsize=(8, 4))
-        
-        # Plot moving averages for each currency
-        for currency, ma_values in moving_average_data.items():
-            if ma_values:  # Check if there are values to plot
-                # Create x-axis points (1 through length of MA values)
-                x_points = list(range(1, len(ma_values) + 1))
-                plt.plot(x_points, ma_values, marker='o', label=f"{currency.upper()}")
-
-        plt.title('Moving Averages by Currency')
-        plt.xlabel('Period')
-        plt.ylabel('Moving Average Value')
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend()
-        plt.tight_layout()
-        
-        plt.savefig(temp_filename, format='png', dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        return temp_filename
-    
-    def create_moving_average_section(self, moving_average_data):
-        """Create a section for moving average data."""
-        sections = []
-        section_style = ParagraphStyle(
-            'SectionStyle',
-            fontSize=12,
-            fontName='Helvetica',
-            spaceAfter=10
-        )
-
-        # Add header for moving averages
-        header = Paragraph("<b>Moving Averages:</b>", section_style)
-        sections.append(header)
-
-        # Add each currency's moving average data
-        for currency, ma_values in moving_average_data.items():
-            if ma_values:
-                ma_text = f"{currency.upper()}: {', '.join(f'{val:.4f}' for val in ma_values)}"
-            else:
-                ma_text = f"{currency.upper()}: Insufficient data"
-            sections.append(Paragraph(ma_text, section_style))
-
-        return sections
-
-    def create_data_sections(self, volatility_data, rate_of_change_data):
-        """Create sections for volatility and rate of change data."""
-        sections = []
-        section_style = ParagraphStyle(
-            'SectionStyle',
-            fontSize=12,
-            fontName='Helvetica',
-            spaceAfter=10
-        )
-        
-        # Volatility section header
-        volatility_header = Paragraph("<b>Volatility Data:</b>", section_style)
-        sections.append(volatility_header)
-    
-        for currency, values in volatility_data.items():
-            text = f"{currency.upper()}: {values if values is not None else 'Insufficient data'}"
-            sections.append(Paragraph(text, section_style))
-    
-        # Add a space between sections
-        sections.append(Paragraph("", section_style))
-    
-        # Rate of change section header
-        rate_change_header = Paragraph("<b>Rate of Change Data (%):</b>", section_style)
-        sections.append(rate_change_header)
-    
-        for currency, values in rate_of_change_data.items():
-            text = f"{currency.upper()}: {values if values is not None else 'Insufficient data'}"
-            sections.append(Paragraph(text, section_style))
-    
-        return sections
