@@ -71,7 +71,7 @@ class PDFWriter:
         elements.append(Spacer(1, 10))
 
         # Exchange rates table with full width
-        elements.append(self.create_subheader("Recent Exchange Rates"))
+        elements.append(self.create_subheader("Recent 5 Dates Exchange Rates"))
         table_data = self.prepare_table_data(currency, exchange_data)
         exchange_table = Table(table_data, colWidths=[self.page_width/3 - 20, self.page_width/3 - 20])
         exchange_table.setStyle(TableStyle([
@@ -113,7 +113,7 @@ class PDFWriter:
                                 self.get_metric_style()))
         
         if moving_averages:
-            ma_text = f"Moving Averages: {', '.join(f'{val:.4f}' for val in moving_averages[:3])}..."
+            ma_text = f"Moving Averages: {', '.join(f'{val:.4f}' for val in moving_averages[:5])}..."
         else:
             ma_text = "Moving Averages: N/A"
         elements.append(Paragraph(ma_text, self.get_metric_style()))

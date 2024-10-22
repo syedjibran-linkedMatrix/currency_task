@@ -1,7 +1,7 @@
 # moving_average_calculator.py
 
 class MovingAverageCalculator:
-    def __init__(self, data, window_size=5):
+    def __init__(self, data, window_size=2):
         """
         Initialize the calculator with fetched data and a window size.
         :param data: Fetched currency data in the form {currency: [(date, rate), ...]}
